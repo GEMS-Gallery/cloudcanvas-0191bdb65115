@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { Container, Typography, Button, List, ListItem, ListItemIcon, ListItemText, CircularProgress, Snackbar, Grid, Card, CardContent, CardActions, IconButton, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { DescriptionOutlined as FileIcon, ViewList, ViewModule, Delete } from '@mui/icons-material';
@@ -48,19 +48,20 @@ function App() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const { register, handleSubmit } = useForm();
 
-  useEffect(() => {
-    fetchFiles();
-  }, []);
-
-  const fetchFiles = async () => {
+  const fetchFiles = useCallback(async () => {
     try {
       const fetchedFiles = await backend.getFiles();
+      console.log('Fetched files:', fetchedFiles);
       setFiles(fetchedFiles);
     } catch (error) {
       console.error('Error fetching files:', error);
       setError('Failed to fetch files. Please try again.');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
 
   const onSubmit = async (data: { file: FileList }) => {
     if (data.file.length > 0) {
@@ -70,7 +71,9 @@ function App() {
       const blob = new Blob([arrayBuffer]);
 
       try {
-        await backend.uploadFile(file.name, blob);
+        console.log('Uploading file:', file.name);
+        const result = await backend.uploadFile(file.name, blob);
+        console.log('Upload result:', result);
         await fetchFiles();
       } catch (error) {
         console.error('Error uploading file:', error);
@@ -83,6 +86,7 @@ function App() {
 
   const handleDeleteFile = async (fileId: bigint) => {
     try {
+      console.log('Deleting file:', fileId);
       await backend.deleteFile(fileId);
       await fetchFiles();
     } catch (error) {
