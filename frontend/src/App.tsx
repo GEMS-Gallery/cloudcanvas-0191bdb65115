@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Container, Typography, Button, List, ListItem, ListItemIcon, ListItemText, CircularProgress } from '@mui/material';
+import { Container, Typography, Button, List, ListItem, ListItemIcon, ListItemText, CircularProgress, Snackbar } from '@mui/material';
 import { DescriptionOutlined as FileIcon } from '@mui/icons-material';
 import { backend } from 'declarations/backend';
 
@@ -14,6 +14,7 @@ interface FileInfo {
 function App() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit } = useForm();
 
   useEffect(() => {
@@ -21,8 +22,13 @@ function App() {
   }, []);
 
   const fetchFiles = async () => {
-    const fetchedFiles = await backend.getFiles();
-    setFiles(fetchedFiles);
+    try {
+      const fetchedFiles = await backend.getFiles();
+      setFiles(fetchedFiles);
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      setError('Failed to fetch files. Please try again.');
+    }
   };
 
   const onSubmit = async (data: { file: FileList }) => {
@@ -37,6 +43,7 @@ function App() {
         await fetchFiles();
       } catch (error) {
         console.error('Error uploading file:', error);
+        setError('Failed to upload file. Please try again.');
       } finally {
         setIsUploading(false);
       }
@@ -48,6 +55,10 @@ function App() {
     if (sizeInBytes < 1024) return sizeInBytes + ' B';
     if (sizeInBytes < 1048576) return (sizeInBytes / 1024).toFixed(2) + ' KB';
     return (sizeInBytes / 1048576).toFixed(2) + ' MB';
+  };
+
+  const handleCloseError = () => {
+    setError(null);
   };
 
   return (
@@ -100,6 +111,13 @@ function App() {
           </ListItem>
         ))}
       </List>
+
+      <Snackbar
+        open={error !== null}
+        autoHideDuration={6000}
+        onClose={handleCloseError}
+        message={error}
+      />
     </Container>
   );
 }
