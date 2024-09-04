@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Container, Typography, Button, List, ListItem, ListItemIcon, ListItemText, CircularProgress, Snackbar } from '@mui/material';
-import { DescriptionOutlined as FileIcon } from '@mui/icons-material';
+import { Container, Typography, Button, List, ListItem, ListItemIcon, ListItemText, CircularProgress, Snackbar, Grid, Card, CardContent, CardActions, IconButton, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import { DescriptionOutlined as FileIcon, ViewList, ViewModule, Delete } from '@mui/icons-material';
 import { backend } from 'declarations/backend';
 
 interface FileInfo {
@@ -11,10 +11,41 @@ interface FileInfo {
   uploadTime: bigint;
 }
 
+function FileCard({ file, onDelete }: { file: FileInfo; onDelete: (id: bigint) => void }) {
+  const formatFileSize = (size: bigint) => {
+    const sizeInBytes = Number(size);
+    if (sizeInBytes < 1024) return sizeInBytes + ' B';
+    if (sizeInBytes < 1048576) return (sizeInBytes / 1024).toFixed(2) + ' KB';
+    return (sizeInBytes / 1048576).toFixed(2) + ' MB';
+  };
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" component="div">
+          {file.name}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Size: {formatFileSize(file.size)}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Uploaded: {new Date(Number(file.uploadTime) / 1000000).toLocaleString()}
+        </Typography>
+      </CardContent>
+      <CardActions>
+        <IconButton onClick={() => onDelete(file.id)}>
+          <Delete />
+        </IconButton>
+      </CardActions>
+    </Card>
+  );
+}
+
 function App() {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
   const { register, handleSubmit } = useForm();
 
   useEffect(() => {
@@ -50,15 +81,24 @@ function App() {
     }
   };
 
-  const formatFileSize = (size: bigint) => {
-    const sizeInBytes = Number(size);
-    if (sizeInBytes < 1024) return sizeInBytes + ' B';
-    if (sizeInBytes < 1048576) return (sizeInBytes / 1024).toFixed(2) + ' KB';
-    return (sizeInBytes / 1048576).toFixed(2) + ' MB';
+  const handleDeleteFile = async (fileId: bigint) => {
+    try {
+      await backend.deleteFile(fileId);
+      await fetchFiles();
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      setError('Failed to delete file. Please try again.');
+    }
   };
 
   const handleCloseError = () => {
     setError(null);
+  };
+
+  const handleViewModeChange = (event: React.MouseEvent<HTMLElement>, newMode: 'list' | 'grid' | null) => {
+    if (newMode !== null) {
+      setViewMode(newMode);
+    }
   };
 
   return (
@@ -98,19 +138,47 @@ function App() {
         </Typography>
       </div>
 
-      <List>
-        {files.map((file) => (
-          <ListItem key={file.id.toString()}>
-            <ListItemIcon>
-              <FileIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary={file.name}
-              secondary={`Size: ${formatFileSize(file.size)} | Uploaded: ${new Date(Number(file.uploadTime) / 1000000).toLocaleString()}`}
-            />
-          </ListItem>
-        ))}
-      </List>
+      <ToggleButtonGroup
+        value={viewMode}
+        exclusive
+        onChange={handleViewModeChange}
+        aria-label="view mode"
+        className="mb-4"
+      >
+        <ToggleButton value="list" aria-label="list view">
+          <ViewList />
+        </ToggleButton>
+        <ToggleButton value="grid" aria-label="grid view">
+          <ViewModule />
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {viewMode === 'list' ? (
+        <List>
+          {files.map((file) => (
+            <ListItem key={file.id.toString()}>
+              <ListItemIcon>
+                <FileIcon />
+              </ListItemIcon>
+              <ListItemText
+                primary={file.name}
+                secondary={`Size: ${formatFileSize(file.size)} | Uploaded: ${new Date(Number(file.uploadTime) / 1000000).toLocaleString()}`}
+              />
+              <IconButton onClick={() => handleDeleteFile(file.id)}>
+                <Delete />
+              </IconButton>
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Grid container spacing={3}>
+          {files.map((file) => (
+            <Grid item xs={12} sm={6} md={4} key={file.id.toString()}>
+              <FileCard file={file} onDelete={handleDeleteFile} />
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
       <Snackbar
         open={error !== null}
